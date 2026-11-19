@@ -107,13 +107,34 @@ export function VersionsPanel() {
   const [msg, setMsg] = useState('');
   const sorted = [...versions].sort((a, b) => b.number - a.number);
 
-  const exportAll = () => {
-    const blob = new Blob([JSON.stringify({ app: 'trebuchet-lab', versions }, null, 2)], { type: 'application/json' });
+  const exportAll = async () => {
+    const json = JSON.stringify({ app: 'trebuchet-lab', versions }, null, 2);
+    const filename = `trebuchet-versions-${new Date().toISOString().slice(0, 10)}.json`;
+    const claude = (window as any).claude;
+    if (claude?.use) {
+      // Inside a Claude page, files are offered through Claude's save prompt.
+      const downloads = await claude.use('downloads');
+      if (!downloads) {
+        setMsg("Saving files isn't available here. Open the page on claude.ai to download a backup.");
+        return;
+      }
+      try {
+        await downloads.save({ filename, data: json });
+        setMsg('Backup saved.');
+      } catch (e: any) {
+        if (e?.code === 'declined') setMsg('Backup not saved.');
+        else if (e?.code === 'rate_limited') setMsg('A save is already waiting for you. Finish that one first.');
+        else setMsg("Couldn't save the backup here. Try again on claude.ai in a browser.");
+      }
+      return;
+    }
+    // Plain browser (the page opened as a file): a normal download.
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `trebuchet-versions-${new Date().toISOString().slice(0, 10)}.json`;
+    a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(a.href);
+    setMsg('Backup downloaded.');
   };
 
   return (

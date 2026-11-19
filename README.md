@@ -30,6 +30,7 @@ npm install
 npm run dev      # local dev server
 npm test         # physics tests
 npm run build    # builds one self-contained dist/index.html
+npm run build:claude  # also writes dist/trebuchet-lab.html, the version published as a private Claude page
 ```
 
 - `src/physics/`: the simulator (no 3D code; easy to test)
