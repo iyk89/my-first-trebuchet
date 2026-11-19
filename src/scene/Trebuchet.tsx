@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { fmtMass } from '../data/format';
 import { projectileById } from '../data/projectiles';
 import type { StepId } from '../data/variables';
-import { geometry, pose, startAngles, type Geometry } from '../physics/geometry';
+import { buildIssues, cwBoxHeight, geometry, pose, startAngles, type Geometry } from '../physics/geometry';
 import type { Design } from '../physics/types';
 import { useStore } from '../state/store';
 import { Label } from './Label';
@@ -39,9 +39,9 @@ export function machineDims(g: Geometry): MachineDims {
   const t = Math.max(L * 0.045, 0.006);
   const post = t * 0.85;
   let box: [number, number, number] = [g.cwSize, g.cwSize, g.cwSize];
-  if (g.hinged && g.cwSize / 2 > g.Lh * 0.85) {
+  const h = cwBoxHeight(g);
+  if (h !== g.cwSize) {
     // a short hanger needs a flatter, wider box (same amount of sand)
-    const h = g.Lh * 1.7;
     const side = Math.sqrt((g.cwSize * g.cwSize * g.cwSize) / h);
     box = [side, h, side];
   }
@@ -83,6 +83,7 @@ export function Trebuchet({ design }: { design: Design }) {
   const mode = useStore((s) => s.mode);
   const building = mode === 'build';
   const projectile = projectileById(design.projectileId);
+  const issueGhost = useMemo(() => buildIssues(design).some((i) => i.part === 'weight'), [design]);
 
   const wood = useMat('#ffffff', woodTexture());
   const frameWood = useMat('#e8d2b0', woodTexture());
@@ -222,6 +223,21 @@ export function Trebuchet({ design }: { design: Design }) {
           {building && step === 'weight' && (
             <Label position={[0, -g.Lh, box[2] / 2]} className="part-label" text={fmtMass(design.cwMass)} z={10} />
           )}
+        </group>
+      )}
+
+      {/* Where the weight would hit the ground */}
+      {building && issueGhost && (
+        <group position={[0, g.H - g.Lb - (g.hinged ? g.Lh : 0), 0]}>
+          <mesh>
+            <boxGeometry args={box} />
+            <meshBasicMaterial color="#ff2d2d" transparent opacity={0.35} depthWrite={false} />
+          </mesh>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -(g.H - g.Lb - (g.hinged ? g.Lh : 0)) + 0.002 * dims.L, 0]}>
+            <ringGeometry args={[box[0] * 0.6, box[0] * 0.8, 32]} />
+            <meshBasicMaterial color="#ff2d2d" transparent opacity={0.8} />
+          </mesh>
+          <Label position={[0, box[1] / 2 + dims.t, box[2] / 2]} className="crash-label" text="💥 Hits the ground here" z={12} />
         </group>
       )}
 

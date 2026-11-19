@@ -140,10 +140,6 @@ export const useStore = create<State>((set, get) => ({
   throwIt: () => {
     const s = get();
     const sim = simulate(s.draft);
-    if (sim.failure === 'blocked') {
-      set({ sim, mode: 'build' });
-      return;
-    }
     const base = s.versions.find((v) => v.id === s.baseVersionId);
     let versionId: string;
     let isNew = false;

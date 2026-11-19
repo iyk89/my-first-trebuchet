@@ -12,7 +12,7 @@
  * holds it up (a constraint force); once the sling lifts it, it swings free. The ball lets
  * go when the sling swings past the release-hook angle, then flies with gravity and air drag.
  */
-import { buildIssues, geometry, startAngles, type Geometry } from './geometry';
+import { ballTooBig, cwBoxHeight, geometry, startAngles, type Geometry } from './geometry';
 import type { Design, Frame, Results, SimOutput } from './types';
 
 type Phase = 'ground' | 'swing' | 'released';
@@ -206,8 +206,6 @@ export interface SimOptions {
 }
 
 export function simulate(d: Design, opts: SimOptions = {}): SimOutput {
-  if (buildIssues(d).length > 0) return { ok: false, failure: 'blocked', frames: [], releaseIndex: -1, landIndex: -1 };
-
   const g = geometry(d);
   const start = startAngles(g);
   let s: Vec6 = [start.theta, start.psi, start.phi, 0, 0, 0];
@@ -226,6 +224,10 @@ export function simulate(d: Design, opts: SimOptions = {}): SimOutput {
 
   let released = false;
   let landed = false;
+  let crashed = false; // the weight hit the ground and the machine stopped dead
+  let crashedAfterRelease = false;
+  let crashIndex = -1;
+  const boxHalf = cwBoxHeight(g) / 2;
   let failure: SimOutput['failure'];
   let releaseIndex = -1;
   let landIndex = -1;
@@ -238,11 +240,12 @@ export function simulate(d: Design, opts: SimOptions = {}): SimOutput {
   let apex = { x: 0, y: 0 };
   let landingSpeed = 0;
 
-  // Can the weight lift the arm and ball at all? (The arm must start turning toward the throw.)
-  if (accelerations(g, s, phase, damp).acc[0] >= 0) {
+  // Can the machine even hold this ball, and can the weight lift the arm and ball?
+  const cantStart = ballTooBig(g) ? 'ballTooBig' : accelerations(g, s, phase, damp).acc[0] >= 0 ? 'tooWeak' : null;
+  if (cantStart) {
     return {
       ok: false,
-      failure: 'tooWeak',
+      failure: cantStart,
       frames: [{ t: 0, theta: s[0], phi: s[2], psi: s[1], bx: b0.x, by: b0.y, released: false }],
       releaseIndex: -1,
       landIndex: -1,
@@ -259,11 +262,31 @@ export function simulate(d: Design, opts: SimOptions = {}): SimOutput {
     const t = step * dt;
 
     // --- the machine
-    s = rk4(g, s, phase, dt, damp);
-    if (phase === 'ground') s = projectToGround(g, s);
+    if (crashed) {
+      // Stopped dead on the ground. Only an empty sling still dangles from the tip.
+      if (released) {
+        s[4] += ((-g.g * Math.cos(s[1])) / g.Ls - 3 * damp * s[4]) * dt;
+        s[1] += s[4] * dt;
+      }
+    } else {
+      s = rk4(g, s, phase, dt, damp);
+      if (phase === 'ground') s = projectToGround(g, s);
+      if (cwState(g, s).y - boxHalf < 0) {
+        crashed = true;
+        crashIndex = frames.length;
+        s[3] = 0;
+        s[5] = 0;
+        if (released) crashedAfterRelease = true;
+        else {
+          failure = 'weightCrash';
+          s[4] = 0;
+          tEnd = t + 1.2 * g.tScale;
+        }
+      }
+    }
 
     // After release: stop the empty arm going through the ground.
-    if (released) {
+    if (released && !crashed) {
       const tipY = g.H + g.La * Math.sin(s[0]);
       const tipVy = g.La * Math.cos(s[0]) * s[3];
       if (tipY < 0.02 * g.La && tipVy < 0) s[3] = -0.3 * s[3];
@@ -286,8 +309,8 @@ export function simulate(d: Design, opts: SimOptions = {}): SimOutput {
       }
 
       const beta = s[1] - s[0]; // sling angle relative to the arm
-      if (failure === 'neverReleased') {
-        // already gave up: keep swinging with the ball stuck in the sling for a moment
+      if (failure === 'neverReleased' || failure === 'weightCrash') {
+        // already over: hold the scene for a moment so you can see what happened
       } else if (beta <= g.releaseAngle) {
         if (phase === 'ground') {
           failure = 'groundRelease';
@@ -376,7 +399,7 @@ export function simulate(d: Design, opts: SimOptions = {}): SimOutput {
   }
 
   if (!releaseInfo || !landed) {
-    return { ok: false, failure: failure ?? 'neverReleased', frames, releaseIndex, landIndex };
+    return { ok: false, failure: failure ?? 'neverReleased', frames, releaseIndex, landIndex, crashIndex };
   }
 
   // Thin the path out to ~120 points for drawing and saving.
@@ -391,6 +414,7 @@ export function simulate(d: Design, opts: SimOptions = {}): SimOutput {
     maxHeight: Math.max(apex.y, releaseInfo.releaseHeight),
     flightTime: tLand - tRelease,
     landingSpeed,
+    weightCrashed: crashedAfterRelease || undefined,
     apex,
     path: thin.map(([x, y]) => [round(x), round(y)]),
   };
@@ -400,6 +424,7 @@ export function simulate(d: Design, opts: SimOptions = {}): SimOutput {
     frames,
     releaseIndex,
     landIndex,
+    crashIndex,
     results,
   };
 }

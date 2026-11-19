@@ -62,6 +62,13 @@ export function ResultsPanel() {
         </div>
       )}
 
+      {revealed && r?.weightCrashed && (
+        <div className="issue">
+          <b>💥 The weight smashed into the ground after the throw.</b>
+          <span>The ball still flew, but on a real machine that crash would break something. Give the weight more room to swing.</span>
+        </div>
+      )}
+
       {revealed && r && (
         <>
           <div className="stats">

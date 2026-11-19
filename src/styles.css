@@ -1039,3 +1039,39 @@ tr.same th {
   font-size: 30px;
   margin-bottom: 8px;
 }
+.fixes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0;
+}
+.fixes button {
+  background: var(--card);
+  border-color: #f3b4b4;
+  color: #8c1d1d;
+  min-height: 36px;
+  padding: 4px 10px;
+  font-size: 14px;
+}
+.fixes button:hover {
+  border-color: var(--bad);
+}
+.crash-note {
+  color: var(--bad);
+  font-weight: 800;
+}
+.crash-label {
+  display: inline-block;
+  pointer-events: none;
+  white-space: nowrap;
+  font-family: var(--font-head);
+  background: #d62828;
+  color: white;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.hud.crash {
+  background: rgba(214, 40, 40, 0.92);
+}

@@ -3,6 +3,14 @@ import type { Design, FailureCode, Results } from '../physics/types';
 
 export const FAILURE_TEXT: Record<FailureCode, { title: string; why: string }> = {
   blocked: { title: "This build can't work", why: '' },
+  weightCrash: {
+    title: 'CRASH! The weight hit the ground',
+    why: 'The box smashed into the ground before the ball let go, so the arm stopped dead and nothing flew.',
+  },
+  ballTooBig: {
+    title: 'The ball is bigger than the machine!',
+    why: 'Its middle sits higher than the arm can reach, so the sling can’t pick it up.',
+  },
   tooWeak: {
     title: "The weight is too light to lift the arm!",
     why: 'The arm and ball are heavier (on their side) than the counterweight, so nothing moves.',
@@ -23,6 +31,9 @@ export const FAILURE_TEXT: Record<FailureCode, { title: string; why: string }> =
 
 /** One "try this next" suggestion based on what just happened. */
 export function nextTip(d: Design, r: Results | undefined, failure?: FailureCode): string {
+  if (failure === 'weightCrash' || r?.weightCrashed)
+    return 'Give the weight room to swing: make the tower taller, move the turning point toward the weight, or use a lighter weight. The warning in the Build tab has one-tap fixes.';
+  if (failure === 'ballTooBig') return 'Pick a smaller ball, or build a much bigger machine (try the Size step).';
   if (failure === 'tooWeak') return 'Make the weight heavier, the arm lighter, or move the turning point toward the weight.';
   if (failure === 'neverReleased') return 'Bend the release hook MORE (a bigger angle) so the ball lets go sooner.';
   if (failure === 'groundRelease' || failure === 'backward')

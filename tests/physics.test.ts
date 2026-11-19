@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { PRESETS } from '../src/data/presets';
 import { simulate, totalEnergy } from '../src/physics/simulate';
-import { geometry } from '../src/physics/geometry';
+import { buildIssues, geometry } from '../src/physics/geometry';
 import type { Design } from '../src/physics/types';
 
 const noAir = (d: Design): Design => ({ ...d, air: false });
@@ -73,8 +73,15 @@ describe('trebuchet physics', () => {
     expect(a.distance).toBe(b.distance);
   });
 
-  test('a weight that hits the ground is blocked', () => {
-    const out = simulate({ ...PRESETS[1].design, towerHeight: 0.2 });
-    expect(out.failure).toBe('blocked');
+  test('a weight that hits the ground crashes, and the fixes really fix it', () => {
+    const d = { ...PRESETS[1].design, cwStyle: 'fixed' as const, towerHeight: 0.2 };
+    expect(simulate(d).failure).toBe('weightCrash');
+    const issue = buildIssues(d)[0];
+    expect(issue.fixes.length).toBeGreaterThanOrEqual(1);
+    for (const fix of issue.fixes) {
+      const fixed = { ...d, ...fix.patch };
+      expect(buildIssues(fixed)).toHaveLength(0);
+      expect(simulate(fixed).failure).not.toBe('weightCrash');
+    }
   });
 });

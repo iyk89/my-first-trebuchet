@@ -227,6 +227,7 @@ export function BuildPanel() {
   const info = STEPS[idx];
   const next = STEPS[idx + 1];
   const issues = buildIssues(d);
+  const setDesign = useStore((s) => s.setDesign);
   return (
     <div className="panel-body">
       <h2>
@@ -236,7 +237,15 @@ export function BuildPanel() {
       {issues.map((i) => (
         <div key={i.message} className="issue">
           <b>⚠️ {i.message}</b>
-          <span>{i.fix}</span>
+          <span>{i.part === 'weight' ? 'The red box in the 3D view shows where it hits. Tap a fix:' : 'Tap a fix:'}</span>
+          <div className="fixes">
+            {i.fixes.map((f) => (
+              <button key={f.label} onClick={() => setDesign(f.patch)}>
+                {f.label}
+              </button>
+            ))}
+          </div>
+          {i.part === 'weight' && <span className="muted small">Or press THROW anyway and watch it crash.</span>}
         </div>
       ))}
       <StepBody step={step} />
@@ -258,7 +267,12 @@ export function ThrowBar() {
   const throwIt = useStore((s) => s.throwIt);
   const versions = useStore((s) => s.versions);
   const base = useStore((s) => currentVersion(s));
-  const blocked = buildIssues(d).length > 0;
+  const issues = buildIssues(d);
+  const warning = issues.some((i) => i.part === 'weight')
+    ? 'The weight will hit the ground'
+    : issues.some((i) => i.part === 'ball')
+      ? 'The ball is too big for this machine'
+      : null;
   const changes = base ? describeChanges(base.design, d) : null;
   const nextNum = versions.reduce((m, v) => Math.max(m, v.number), 0) + 1;
   const isReplay = base && changes && changes.length === 0;
@@ -275,13 +289,14 @@ export function ThrowBar() {
             {base ? ` (${changes!.length} change${changes!.length === 1 ? '' : 's'} from ${base.name})` : ''}
           </span>
         )}
+        {warning && <span className="crash-note">⚠️ {warning}</span>}
         <label className="guess">
           Guess how far:
           <input inputMode="decimal" placeholder="?" value={guess} onChange={(e) => setGuess(e.target.value)} />m
         </label>
       </div>
-      <button className="throw" disabled={blocked} onClick={throwIt}>
-        {blocked ? 'Fix the build first' : 'THROW!'}
+      <button className="throw" onClick={throwIt}>
+        THROW!
       </button>
     </div>
   );

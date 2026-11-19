@@ -14,6 +14,8 @@ type S = ReturnType<typeof useStore.getState>;
 /** Live ball readout: -1 = not throwing, -2 = still swinging, otherwise the value rounded to 1 cm. */
 function hudValue(s: S, axis: 'x' | 'y') {
   if (s.mode !== 'throw' || !s.sim || !s.sim.frames.length) return -1;
+  const ci = s.sim.crashIndex ?? -1;
+  if (ci >= 0 && s.sim.failure === 'weightCrash' && s.playTime >= s.sim.frames[ci].t) return -3;
   const f = frameAt(s.sim, s.playTime);
   if (!f.released) return -2;
   const v = axis === 'x' ? f.bx : f.by - s.draft.projectileDiameter / 2;
@@ -25,6 +27,7 @@ function LiveHud() {
   const y = useStore((s) => hudValue(s, 'y'));
   if (x === -1) return null;
   if (x === -2) return <div className="hud">Swinging…</div>;
+  if (x === -3) return <div className="hud crash">💥 CRASH!</div>;
   if (y === 0 && x > 0) return <div className="hud">🎯 Landed! {fmtLength(x)}</div>;
   return (
     <div className="hud">
