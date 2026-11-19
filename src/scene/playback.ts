@@ -1,6 +1,4 @@
-import { geometry, pose, startAngles } from '../physics/geometry';
-import type { Design, Frame, SimOutput } from '../physics/types';
-import { useStore } from '../state/store';
+import type { Frame, SimOutput } from '../physics/types';
 
 /** Smoothly blended snapshot of the throw at time t. */
 export function frameAt(sim: SimOutput, t: number): Frame {
@@ -42,16 +40,6 @@ export function frameIndexAt(sim: SimOutput, t: number): number {
     else hi = mid;
   }
   return lo;
-}
-
-/** The pose to draw right now: the cocked build pose, or the current moment of the throw. */
-export function currentFrame(design: Design): Frame {
-  const s = useStore.getState();
-  if (s.mode === 'throw' && s.sim && s.sim.frames.length > 0) return frameAt(s.sim, s.playTime);
-  const g = geometry(design);
-  const a = startAngles(g);
-  const p = pose(g, a.theta, a.phi, a.psi);
-  return { t: 0, theta: a.theta, phi: a.phi, psi: a.psi, bx: p.ball[0], by: p.ball[1], released: false };
 }
 
 export function simEndTime(sim: SimOutput) {

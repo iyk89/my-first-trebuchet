@@ -50,8 +50,12 @@ export function Slider({ spec }: { spec: NumberVar }) {
     } else set(value + dir * spec.step);
   };
 
+  // Touching the release-hook control zooms the 3D view in on the hook; any other control zooms back out.
+  const setFocus = useStore((s) => s.setFocus);
+  const focusMe = () => setFocus(spec.key === 'releaseAngle' ? 'hook' : null);
+
   return (
-    <div className="var">
+    <div className="var" onPointerDownCapture={focusMe} onFocusCapture={focusMe}>
       <div className="var-head">
         <span className="var-label">{spec.label}</span>
         {typing === null ? (

@@ -203,6 +203,8 @@ export function totalEnergy(d: Design, s: readonly number[]): number {
 export interface SimOptions {
   /** Called after every machine step before release (used by tests to check energy). */
   onStep?: (state: readonly number[], phase: string, t: number) => void;
+  /** Stop at the moment the ball lets go (used to preview the release while you adjust the hook). */
+  stopAtRelease?: boolean;
 }
 
 export function simulate(d: Design, opts: SimOptions = {}): SimOutput {
@@ -348,6 +350,10 @@ export function simulate(d: Design, opts: SimOptions = {}): SimOutput {
           };
           apex = { x: b.x, y: b.y };
           path.push([b.x, b.y]);
+          if (opts.stopAtRelease) {
+            pushFrame(t);
+            return { ok: true, frames, releaseIndex, landIndex: -1, launch: { vx: b.vx, vy: b.vy } };
+          }
         }
       } else if (t > 12 * g.tScale || (t > 0.5 * g.tScale && s[3] > 0)) {
         // Arm stopped and is swinging back, and the ball is still in the sling.

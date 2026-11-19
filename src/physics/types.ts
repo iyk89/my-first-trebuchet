@@ -82,5 +82,6 @@ export interface SimOutput {
   releaseIndex: number; // first frame after release, or -1
   landIndex: number; // frame where the ball lands, or -1
   crashIndex?: number; // frame where the weight hit the ground, if it did
+  launch?: { vx: number; vy: number }; // ball velocity at release (release-preview runs only)
   results?: Results;
 }

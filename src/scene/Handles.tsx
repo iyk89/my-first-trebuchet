@@ -96,13 +96,14 @@ export function Handles({ design }: { design: Design }) {
   const step = useStore((s) => s.step);
   const mode = useStore((s) => s.mode);
   const panel = useStore((s) => s.panel);
+  const focus = useStore((s) => s.focus);
   const setDesign = useStore((s) => s.setDesign);
   const g = useMemo(() => geometry(design), [design]);
   const p = useMemo(() => {
     const a = startAngles(g);
     return pose(g, a.theta, a.phi, a.psi);
   }, [g]);
-  if (mode !== 'build' || panel !== 'build') return null;
+  if (mode !== 'build' || panel !== 'build' || focus === 'hook') return null;
 
   const L = g.La + g.Lb;
   const size = Math.max(L * 0.03, 0.006);

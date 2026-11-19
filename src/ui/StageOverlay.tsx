@@ -45,6 +45,7 @@ export function StageOverlay() {
   const speed = useStore((s) => s.speed);
   const slowSwing = useStore((s) => s.slowSwing);
   const autoCam = useStore((s) => s.autoCam);
+  const focus = useStore((s) => s.focus);
   const set = useStore.getState();
   const showPlayback = mode === 'throw' && sim && sim.frames.length > 0;
   const end = sim ? simEndTime(sim) : 0;
@@ -52,6 +53,12 @@ export function StageOverlay() {
   return (
     <>
       <LiveHud />
+      {mode === 'build' && focus === 'hook' && (
+        <div className="focus-chip">
+          <span>🔍 The moment the ball lets go</span>
+          <button onClick={() => set.setFocus(null)}>Show whole machine</button>
+        </div>
+      )}
       <div className="stage-tools">
         {!autoCam && (
           <button onClick={() => set.setAutoCam(true)} title="Point the camera back at the action">

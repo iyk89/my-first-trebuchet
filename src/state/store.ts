@@ -70,6 +70,9 @@ interface State {
   showAllArcs: boolean;
   panel: 'build' | 'results' | 'versions' | 'compare';
   lastThrowNew: boolean;
+  /** Part of the machine the camera is zoomed in on while you adjust it. */
+  focus: 'hook' | null;
+  setFocus: (f: 'hook' | null) => void;
   revealed: boolean; // results stay hidden until the ball lands, so guesses stay honest
   reveal: () => void;
 
@@ -125,6 +128,10 @@ export const useStore = create<State>((set, get) => ({
   showAllArcs: false,
   panel: 'build',
   lastThrowNew: false,
+  focus: null,
+  setFocus: (focus) => {
+    if (get().focus !== focus) set({ focus, autoCam: true });
+  },
   revealed: false,
 
   setDesign: (patch) => {
@@ -135,7 +142,7 @@ export const useStore = create<State>((set, get) => ({
     set({ draft: { ...d }, mode: 'build', playing: false, autoCam: true });
     persist(get);
   },
-  setStep: (step) => set({ step, mode: 'build', playing: false, autoCam: true, panel: 'build' }),
+  setStep: (step) => set({ step, mode: 'build', playing: false, autoCam: true, panel: 'build', focus: null }),
 
   throwIt: () => {
     const s = get();
@@ -174,6 +181,7 @@ export const useStore = create<State>((set, get) => ({
       autoCam: true,
       guess: '',
       panel: 'results',
+      focus: null,
       lastThrowNew: isNew,
       revealed: !isNew,
     });

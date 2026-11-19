@@ -1,5 +1,6 @@
+import { Line } from '@react-three/drei';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { fmtMass } from '../data/format';
 import { projectileById } from '../data/projectiles';
@@ -8,10 +9,12 @@ import { buildIssues, cwBoxHeight, geometry, pose, startAngles, type Geometry } 
 import type { Design } from '../physics/types';
 import { useStore } from '../state/store';
 import { Label } from './Label';
-import { currentFrame } from './playback';
+import { frameAt } from './playback';
+import { releasePreview } from './preview';
 import { darkWoodTexture, woodTexture } from './textures';
 
 const UP = new THREE.Vector3(0, 1, 0);
+const Z = new THREE.Vector3(0, 0, 1);
 const tmpA = new THREE.Vector3();
 const tmpB = new THREE.Vector3();
 const tmpD = new THREE.Vector3();
@@ -106,32 +109,78 @@ export function Trebuchet({ design }: { design: Design }) {
   const pouch = useRef<THREE.Mesh>(null);
   const cordA = useRef<THREE.Mesh>(null);
   const cordB = useRef<THREE.Mesh>(null);
+  const loop = useRef<THREE.Mesh>(null);
+  // Angles currently drawn. While building they glide toward their target (the ready pose,
+  // or the release moment when you're adjusting the hook) instead of jumping.
+  const shown = useRef<{ theta: number; phi: number; psi: number } | null>(null);
+  const lastMode = useRef(mode);
+  const [settled, setSettled] = useState(false); // reached the release-moment pose
+  const focus = useStore((s) => s.focus);
+  const preview = useMemo(() => (building && focus === 'hook' ? releasePreview(design) : null), [building, focus, design]);
 
-  useFrame(() => {
-    const f = currentFrame(design);
-    if (arm.current) arm.current.rotation.z = f.theta;
-    const p = pose(g, f.theta, f.phi, f.psi);
+  const t = dims.t;
+  const hookLen = t * 3.2;
+  const alpha = (design.releaseAngle * Math.PI) / 180;
+  const loopAt = 0.55;
+
+  useFrame((_, delta) => {
+    const s = useStore.getState();
+    let theta: number, phi: number, psi: number, bx: number, by: number, released: boolean;
+    if (s.mode === 'throw' && s.sim && s.sim.frames.length) {
+      const f = frameAt(s.sim, s.playTime);
+      ({ theta, phi, psi, bx, by, released } = f);
+      shown.current = { theta, phi, psi };
+    } else {
+      const pv = s.focus === 'hook' ? releasePreview(design) : null;
+      const target = pv?.ok ? pv : startAngles(g);
+      if (!shown.current || lastMode.current !== s.mode) shown.current = { theta: target.theta, phi: target.phi, psi: target.psi };
+      const k = 1 - Math.exp(-Math.min(delta, 0.1) * 4);
+      const cur = shown.current;
+      cur.theta += (target.theta - cur.theta) * k;
+      cur.phi += (target.phi - cur.phi) * k;
+      cur.psi += (target.psi - cur.psi) * k;
+      const near = Math.abs(target.theta - cur.theta) + Math.abs(target.psi - cur.psi) < 0.01;
+      if (near) Object.assign(cur, { theta: target.theta, phi: target.phi, psi: target.psi });
+      const isSettled = !!pv?.ok && near;
+      if (isSettled !== settled) setSettled(isSettled);
+      ({ theta, phi, psi } = cur);
+      const bp = pose(g, theta, phi, psi).ball;
+      bx = bp[0];
+      by = Math.max(bp[1], g.r);
+      released = false;
+    }
+    lastMode.current = s.mode;
+
+    if (arm.current) arm.current.rotation.z = theta;
+    const p = pose(g, theta, phi, psi);
     if (hanger.current) {
       hanger.current.position.set(p.shortEnd[0], p.shortEnd[1], 0);
-      hanger.current.rotation.z = f.phi + Math.PI / 2;
+      hanger.current.rotation.z = phi + Math.PI / 2;
     }
-    if (ball.current) ball.current.position.set(f.bx, f.by, 0);
-    const end: [number, number] = f.released ? p.ball : [f.bx, f.by];
+    if (ball.current) ball.current.position.set(bx, by, 0);
+    const end: [number, number] = released ? p.ball : [bx, by];
     if (pouch.current) {
       pouch.current.position.set(end[0], end[1], 0);
       pouch.current.rotation.z = Math.atan2(end[1] - p.tip[1], end[0] - p.tip[0]);
     }
-    const half = Math.max(g.r * 0.9, dims.t * 0.3);
+    const half = Math.max(g.r * 0.9, t * 0.3);
+    // One cord is tied to the arm tip; the other ends in a loop on the release hook until it slides off.
+    const d = hookLen * loopAt;
+    tmpA.set(p.tip[0] + d * Math.cos(theta + alpha), p.tip[1] + d * Math.sin(theta + alpha), 0);
+    if (cordA.current) {
+      cordA.current.visible = !released;
+      setRod(cordA.current, tmpA, tmpB.set(end[0], end[1], half));
+    }
+    if (loop.current) loop.current.visible = !released;
     tmpA.set(p.tip[0], p.tip[1], 0);
-    if (cordA.current) setRod(cordA.current, tmpA, tmpB.set(end[0], end[1], half));
     if (cordB.current) setRod(cordB.current, tmpA, tmpB.set(end[0], end[1], -half));
   });
 
-  const { t, post, w, footX, baseHalf, box } = dims;
+  const loopQuat = useMemo(() => new THREE.Quaternion().setFromUnitVectors(Z, new THREE.Vector3(Math.cos(alpha), Math.sin(alpha), 0)), [alpha]);
+
+  const { post, w, footX, baseHalf, box } = dims;
   const H = g.H;
   const ropeR = Math.max(t * 0.06, g.r * 0.08, 0.0008);
-  const hookLen = t * 1.8;
-  const alpha = (design.releaseAngle * Math.PI) / 180;
 
   // Static frame pieces (two A-frames, base, axle)
   const framePieces = useMemo(() => {
@@ -200,8 +249,13 @@ export function Trebuchet({ design }: { design: Design }) {
           material={hookMat}
           onClick={pick('sling')}
         >
-          <cylinderGeometry args={[t * 0.09, t * 0.09, hookLen, 8]} />
+          <cylinderGeometry args={[t * 0.13, t * 0.13, hookLen, 10]} />
         </mesh>
+        {/* The sling's loop, hooked over the release hook */}
+        <mesh ref={loop} position={[g.La + Math.cos(alpha) * hookLen * loopAt, Math.sin(alpha) * hookLen * loopAt, 0]} quaternion={loopQuat} material={rope}>
+          <torusGeometry args={[t * 0.26, t * 0.06, 8, 20]} />
+        </mesh>
+        {preview && <HookAngle La={g.La} alpha={alpha} hookLen={hookLen} t={t} />}
         {!g.hinged && (
           <mesh position={[-g.Lb, 0, 0]} material={darkWood} castShadow onClick={pick('weight')}>
             <boxGeometry args={box} />
@@ -252,6 +306,12 @@ export function Trebuchet({ design }: { design: Design }) {
         <sphereGeometry args={[g.r * 1.08, 12, 8, 0, Math.PI * 2, Math.PI * 0.45, Math.PI * 0.55]} />
       </mesh>
 
+      {/* While adjusting the hook: the launch direction at the moment the ball lets go */}
+      {preview?.ok && settled && <LaunchArrow preview={preview} L={dims.L} r={g.r} />}
+      {preview && !preview.ok && (
+        <Label position={[startTip(g)[0], startTip(g)[1] + dims.L * 0.15, 0]} className="crash-label" text={PREVIEW_FAIL[preview.failure ?? 'neverReleased'] ?? 'With this bend the ball never lets go!'} z={12} />
+      )}
+
       {/* Ball */}
       <mesh ref={ball} material={ballMat} castShadow onClick={pick('ball')}>
         <sphereGeometry args={[g.r, 24, 16]} />
@@ -270,7 +330,8 @@ export function KidForScale({ design }: { design: Design }) {
   const pants = useMat('#2b2f45');
   const skin = useMat('#f1c6a0');
   const hair = useMat('#3b2a1e');
-  if (dims.L < 0.6) return null; // on tiny builds the kid would just fill the screen with legs
+  const zoomed = useStore((s) => s.mode === 'build' && s.focus === 'hook');
+  if (dims.L < 0.6 || zoomed) return null; // tiny builds, or zoomed on the hook: the kid would just be in the way
   return (
     <group position={[x, 0, z]}>
       {[-0.07, 0.07].map((dz) => (
@@ -293,6 +354,71 @@ export function KidForScale({ design }: { design: Design }) {
         <sphereGeometry args={[0.112, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.45]} />
       </mesh>
       <Label position={[0, 1.3, 0]} className="scale-label" text="Kid · 1.2 m" z={5} />
+    </group>
+  );
+}
+
+const PREVIEW_FAIL: Partial<Record<string, string>> = {
+  neverReleased: 'With this bend the ball never lets go! Bend it more.',
+  groundRelease: 'With this bend it lets go before the ball leaves the ground! Bend it less.',
+  weightCrash: 'The weight crashes first. Fix the warning to see the release.',
+  tooWeak: "The weight can't lift the arm yet. Fix that first.",
+  ballTooBig: 'The ball is too big for this machine.',
+};
+
+function startTip(g: Geometry): [number, number] {
+  const a = startAngles(g);
+  return pose(g, a.theta, a.phi, a.psi).tip;
+}
+
+/** The hook's bend drawn as an angle: a dashed line straight out from the arm, an arc, and the degrees. */
+function HookAngle({ La, alpha, hookLen, t }: { La: number; alpha: number; hookLen: number; t: number }) {
+  const R = hookLen * 1.9;
+  const arc = useMemo(() => {
+    const pts: [number, number, number][] = [];
+    const n = Math.max(2, Math.ceil(Math.abs(alpha) / 0.05));
+    for (let i = 0; i <= n; i++) {
+      const a = (alpha * i) / n;
+      pts.push([La + Math.cos(a) * R * 0.75, Math.sin(a) * R * 0.75, t * 0.6]);
+    }
+    return pts;
+  }, [La, alpha, R, t]);
+  const deg = Math.round((alpha * 180) / Math.PI);
+  return (
+    <group>
+      <Line points={[[La, 0, t * 0.6], [La + R, 0, t * 0.6]]} color="#ffffff" lineWidth={2} dashed dashSize={R * 0.08} gapSize={R * 0.06} />
+      <Line points={[[La, 0, t * 0.6], [La + Math.cos(alpha) * R, Math.sin(alpha) * R, t * 0.6]]} color="#ffd23f" lineWidth={2.5} />
+      {arc.length > 1 && <Line points={arc} color="#ffd23f" lineWidth={3} />}
+      <Label position={[La + Math.cos(alpha / 2) * R * 1.05, Math.sin(alpha / 2) * R * 1.05, t * 0.6]} className="angle-label" text={`${deg}°`} z={13} />
+    </group>
+  );
+}
+
+/** Arrow from the ball showing which way it flies off when it lets go. */
+function LaunchArrow({ preview, L, r }: { preview: { bx: number; by: number; vx: number; vy: number; angle: number }; L: number; r: number }) {
+  const len = L * 0.35;
+  const sp = Math.hypot(preview.vx, preview.vy) || 1;
+  const ux = preview.vx / sp;
+  const uy = preview.vy / sp;
+  const start = new THREE.Vector3(preview.bx + ux * r * 1.3, preview.by + uy * r * 1.3, 0);
+  const tipPt = new THREE.Vector3(preview.bx + ux * len, preview.by + uy * len, 0);
+  const shaftEnd = new THREE.Vector3(preview.bx + ux * len * 0.82, preview.by + uy * len * 0.82, 0);
+  const w = Math.max(L * 0.012, r * 0.35);
+  const back = preview.vx < 0;
+  const ang = Math.round(preview.angle);
+  const text = back ? 'Flies off backward!' : ang >= 0 ? `Flies off at ${ang}° up` : `Flies off ${-ang}° downward!`;
+  return (
+    <group>
+      <mesh ref={(m) => m && setRod(m, start, shaftEnd)}>
+        <cylinderGeometry args={[w, w, 1, 10]} />
+        <meshBasicMaterial color="#ff7a1a" />
+      </mesh>
+      <mesh ref={(m) => m && setRod(m, shaftEnd, tipPt)}>
+        <cylinderGeometry args={[0, w * 2.6, 1, 14]} />
+        <meshBasicMaterial color="#ff7a1a" />
+      </mesh>
+      <Label position={[tipPt.x + ux * L * 0.06, tipPt.y + uy * L * 0.06 + L * 0.03, 0]} className="launch-label" text={text} z={13} />
+      <Label position={[preview.bx, preview.by - r - L * 0.05, 0]} className="handle-hint" text="Lets go here!" z={13} />
     </group>
   );
 }
