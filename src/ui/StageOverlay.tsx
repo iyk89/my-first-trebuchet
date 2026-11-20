@@ -46,6 +46,9 @@ export function StageOverlay() {
   const slowSwing = useStore((s) => s.slowSwing);
   const autoCam = useStore((s) => s.autoCam);
   const focus = useStore((s) => s.focus);
+  const demoLabel = useStore((s) => s.demoLabel);
+  const demoArcs = useStore((s) => s.demoArcs);
+  const simVersionId = useStore((s) => s.simVersionId);
   const set = useStore.getState();
   const showPlayback = mode === 'throw' && sim && sim.frames.length > 0;
   const end = sim ? simEndTime(sim) : 0;
@@ -53,7 +56,16 @@ export function StageOverlay() {
   return (
     <>
       <LiveHud />
-      {mode === 'build' && focus === 'hook' && (
+      {mode === 'throw' && simVersionId === null && demoLabel && (
+        <div className="demo-chip">▶ Test throw: {demoLabel}</div>
+      )}
+      {mode === 'build' && demoArcs && (
+        <div className="focus-chip">
+          <span>🎯 Test throws (not saved)</span>
+          <button onClick={() => set.clearDemo()}>Hide</button>
+        </div>
+      )}
+      {mode === 'build' && focus === 'hook' && !demoArcs && (
         <div className="focus-chip">
           <span>🔍 The moment the ball lets go</span>
           <button onClick={() => set.setFocus(null)}>Show whole machine</button>

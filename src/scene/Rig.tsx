@@ -105,6 +105,12 @@ export function CameraRig({ design }: { design: Design }) {
       x1 = Math.max(...pts.map((q) => q[0])) + pad;
       y0 = Math.max(0, Math.min(...pts.map((q) => q[1])) - pad);
       y1 = Math.max(...pts.map((q) => q[1])) + pad;
+    } else if (s.mode === 'build' && s.demoArcs) {
+      for (const a of s.demoArcs) {
+        x0 = Math.min(x0, a.distance - L * 0.2);
+        x1 = Math.max(x1, a.distance * 1.05);
+        y1 = Math.max(y1, a.maxHeight * 1.08);
+      }
     } else if (s.mode === 'build' && s.panel === 'compare') {
       for (const v of s.versions) {
         if (!s.compareIds.includes(v.id) || !v.results) continue;

@@ -6,12 +6,14 @@ import { ComparePanel } from './ui/ComparePanel';
 import { ResultsPanel } from './ui/ResultsPanel';
 import { StageOverlay } from './ui/StageOverlay';
 import { VersionsPanel } from './ui/VersionsPanel';
+import { LearnPanel } from './learn/LearnPanel';
 
 function TopBar() {
   const panel = useStore((s) => s.panel);
   const setPanel = useStore((s) => s.setPanel);
   const versions = useStore((s) => s.versions);
   const sim = useStore((s) => s.sim);
+  const simVersionId = useStore((s) => s.simVersionId);
   const draft = useStore((s) => s.draft);
   const base = useStore((s) => currentVersion(s));
   const resetDraft = useStore((s) => s.resetDraft);
@@ -45,7 +47,10 @@ function TopBar() {
         <button className={panel === 'build' ? 'on' : ''} onClick={() => setPanel('build')}>
           🔧 Build
         </button>
-        <button className={panel === 'results' ? 'on' : ''} disabled={!sim} onClick={() => setPanel('results')}>
+        <button className={panel === 'learn' ? 'on' : ''} onClick={() => setPanel('learn')}>
+          📖 Learn
+        </button>
+        <button className={panel === 'results' ? 'on' : ''} disabled={!sim || !simVersionId} onClick={() => setPanel('results')}>
           🏁 Results
         </button>
         <button className={panel === 'versions' ? 'on' : ''} onClick={() => setPanel('versions')}>
@@ -76,8 +81,9 @@ export default function App() {
             {panel === 'results' && <ResultsPanel />}
             {panel === 'versions' && <VersionsPanel />}
             {panel === 'compare' && <ComparePanel />}
+            {panel === 'learn' && <LearnPanel />}
           </div>
-          <ThrowBar />
+          {panel !== 'learn' && <ThrowBar />}
         </aside>
       </main>
     </div>

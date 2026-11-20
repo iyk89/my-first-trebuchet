@@ -5,6 +5,7 @@ import { STEPS, VARS, describeChanges, type StepId } from '../data/variables';
 import { buildIssues, PLANETS } from '../physics/geometry';
 import type { Planet } from '../physics/types';
 import { currentVersion, useStore } from '../state/store';
+import { LearnButton } from './LearnButton';
 import { Slider } from './Slider';
 
 const STEP_ICONS: Record<StepId, string> = {
@@ -30,8 +31,16 @@ function SizeStep() {
       armMass: d.armMass * k * k * k,
       cwMass: d.cwMass * k * k * k,
     });
+  const setPanel = useStore((s) => s.setPanel);
   return (
     <>
+      <button className="learn-callout" onClick={() => setPanel('learn')}>
+        <span>📖</span>
+        <span>
+          <b>New here? Learn the parts first.</b>
+          <small>Short lessons on what each part does, using your own machine.</small>
+        </span>
+      </button>
       <div className="presets">
         {PRESETS.map((p) => (
           <button key={p.id} className="preset" onClick={() => replaceDesign(p.design)}>
@@ -71,7 +80,9 @@ function WeightStep() {
       <Slider spec={VARS.cwMass} />
       <div className="var">
         <div className="var-head">
-          <span className="var-label">How is it attached?</span>
+          <span className="var-label">
+            How is it attached? <LearnButton k="cwStyle" />
+          </span>
         </div>
         <div className="choice">
           <button className={d.cwStyle === 'fixed' ? 'on' : ''} onClick={() => setDesign({ cwStyle: 'fixed' })}>
@@ -103,6 +114,9 @@ function BallStep() {
   };
   return (
     <>
+      <div className="learn-row">
+        <LearnButton k="projectileId" />
+      </div>
       <div className="balls">
         {PROJECTILES.map((p) => {
           const px = Math.max(10, Math.min(40, 12 + Math.log10(p.diameter / 0.016) * 22));
@@ -134,7 +148,9 @@ function WorldStep() {
     <>
       <div className="var">
         <div className="var-head">
-          <span className="var-label">Planet</span>
+          <span className="var-label">
+            Planet <LearnButton k="planet" />
+          </span>
         </div>
         <div className="choice three">
           {(Object.keys(PLANETS) as Planet[]).map((p) => (
@@ -148,7 +164,9 @@ function WorldStep() {
       </div>
       <div className="var">
         <div className="var-head">
-          <span className="var-label">Air</span>
+          <span className="var-label">
+            Air <LearnButton k="air" />
+          </span>
         </div>
         <div className="choice">
           <button className={d.air ? 'on' : ''} onClick={() => setDesign({ air: true })}>

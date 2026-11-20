@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { NumberVar } from '../data/variables';
 import type { Design } from '../physics/types';
 import { useStore } from '../state/store';
+import { LearnButton } from './LearnButton';
 
 const RES = 1000;
 
@@ -57,7 +58,9 @@ export function Slider({ spec }: { spec: NumberVar }) {
   return (
     <div className="var" onPointerDownCapture={focusMe} onFocusCapture={focusMe}>
       <div className="var-head">
-        <span className="var-label">{spec.label}</span>
+        <span className="var-label">
+          {spec.label} <LearnButton k={spec.key} />
+        </span>
         {typing === null ? (
           <button className="var-value" onClick={() => setTyping(String(Number(value.toPrecision(4))))} title="Tap to type a number">
             {spec.format(value)}

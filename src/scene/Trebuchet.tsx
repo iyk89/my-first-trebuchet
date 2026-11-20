@@ -97,11 +97,12 @@ export function Trebuchet({ design }: { design: Design }) {
   const ballMat = useMat(projectile.color, undefined, { roughness: 0.5 });
   const hookMat = useMat('#c0c4cc', undefined, { metalness: 0.8, roughness: 0.25 });
 
-  useHighlight([wood], building && step === 'arm');
-  useHighlight([frameWood], building && step === 'tower');
-  useHighlight([darkWood], building && step === 'weight');
-  useHighlight([rope, leather, hookMat], building && step === 'sling');
-  useHighlight([ballMat], building && step === 'ball');
+  const lit = useStore((s) => s.mode === 'build' || s.panel === 'learn');
+  useHighlight([wood], lit && step === 'arm');
+  useHighlight([frameWood], lit && step === 'tower');
+  useHighlight([darkWood], lit && step === 'weight');
+  useHighlight([rope, leather, hookMat], lit && step === 'sling');
+  useHighlight([ballMat], lit && step === 'ball');
 
   const arm = useRef<THREE.Group>(null);
   const hanger = useRef<THREE.Group>(null);

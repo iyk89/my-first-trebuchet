@@ -20,6 +20,37 @@ export interface Version {
   color: string;
 }
 
+export interface DemoArc {
+  label: string;
+  color: string;
+  path: [number, number][];
+  distance: number;
+  maxHeight: number;
+}
+
+const LEARNED_KEY = 'trebuchet-lab:learned';
+function loadLearned(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(LEARNED_KEY) ?? '[]');
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+function saveLearned(v: string[]) {
+  try {
+    localStorage.setItem(LEARNED_KEY, JSON.stringify(v));
+  } catch {
+    /* fine: it just won't remember which lessons you finished */
+  }
+}
+
+/** Leaving a lesson demo: drop the what-if build and go back to the build view. */
+function noDemo(s: { mode: Mode; simVersionId: string | null }) {
+  const wasDemo = s.mode === 'throw' && s.simVersionId === null;
+  return { demoDesign: null, demoLabel: null, demoArcs: null, ...(wasDemo ? { mode: 'build' as Mode, playing: false } : {}) };
+}
+
 export const VERSION_COLORS = ['#ff7a1a', '#2f80ed', '#27ae60', '#d6336c', '#9b51e0', '#f2c94c', '#00a3a3', '#8d6e63'];
 
 const STORAGE_KEY = 'trebuchet-lab:v1';
@@ -68,7 +99,20 @@ interface State {
   guess: string;
   compareIds: string[];
   showAllArcs: boolean;
-  panel: 'build' | 'results' | 'versions' | 'compare';
+  panel: 'build' | 'results' | 'versions' | 'compare' | 'learn';
+  /** Lessons: which one is open (null = the list), which page, and which ones you've finished. */
+  learnId: string | null;
+  learnPage: number;
+  learned: string[];
+  /** A "what if" build shown in 3D during a lesson. It is never saved as a version. */
+  demoDesign: Design | null;
+  demoLabel: string | null;
+  demoArcs: DemoArc[] | null;
+  openLesson: (id: string | null, opts?: { step?: StepId; focus?: 'hook' | null }) => void;
+  setLearnPage: (n: number) => void;
+  playDemo: (patch: Partial<Design>, label: string) => void;
+  showDemoArcs: (arcs: DemoArc[]) => void;
+  clearDemo: () => void;
   lastThrowNew: boolean;
   /** Part of the machine the camera is zoomed in on while you adjust it. */
   focus: 'hook' | null;
@@ -133,16 +177,62 @@ export const useStore = create<State>((set, get) => ({
     if (get().focus !== focus) set({ focus, autoCam: true });
   },
   revealed: false,
+  learnId: null,
+  learnPage: 0,
+  learned: loadLearned(),
+  demoDesign: null,
+  demoLabel: null,
+  demoArcs: null,
+
+  openLesson: (id, opts) => {
+    set((s) => ({
+      ...noDemo(s),
+      panel: 'learn',
+      learnId: id,
+      learnPage: 0,
+      step: opts?.step ?? s.step,
+      focus: opts?.focus ?? null,
+      autoCam: true,
+    }));
+  },
+  setLearnPage: (n) => {
+    set((s) => ({ ...noDemo(s), learnPage: n, autoCam: true }));
+    const s = get();
+    if (n >= 3 && s.learnId && !s.learned.includes(s.learnId)) {
+      const learned = [...s.learned, s.learnId];
+      set({ learned });
+      saveLearned(learned);
+    }
+  },
+  playDemo: (patch, label) => {
+    const s = get();
+    const d = { ...s.draft, ...patch };
+    set({
+      demoDesign: Object.keys(patch).length ? d : null,
+      demoLabel: label,
+      demoArcs: null,
+      sim: simulate(d),
+      simVersionId: null,
+      mode: 'throw',
+      playTime: 0,
+      playing: true,
+      autoCam: true,
+      revealed: true,
+      lastThrowNew: false,
+    });
+  },
+  showDemoArcs: (arcs) => set((s) => ({ ...noDemo(s), demoArcs: arcs, mode: 'build', playing: false, autoCam: true })),
+  clearDemo: () => set((s) => noDemo(s)),
 
   setDesign: (patch) => {
-    set((s) => ({ draft: { ...s.draft, ...patch }, mode: 'build', playing: false, autoCam: true }));
+    set((s) => ({ ...noDemo(s), draft: { ...s.draft, ...patch }, mode: 'build', playing: false, autoCam: true }));
     persist(get);
   },
   replaceDesign: (d) => {
-    set({ draft: { ...d }, mode: 'build', playing: false, autoCam: true });
+    set((s) => ({ ...noDemo(s), draft: { ...d }, mode: 'build', playing: false, autoCam: true }));
     persist(get);
   },
-  setStep: (step) => set({ step, mode: 'build', playing: false, autoCam: true, panel: 'build', focus: null }),
+  setStep: (step) => set((s) => ({ ...noDemo(s), step, mode: 'build', playing: false, autoCam: true, panel: 'build', focus: null })),
 
   throwIt: () => {
     const s = get();
@@ -173,6 +263,9 @@ export const useStore = create<State>((set, get) => ({
       set({ versions: [...s.versions, v], baseVersionId: v.id });
     }
     set({
+      demoDesign: null,
+      demoLabel: null,
+      demoArcs: null,
       sim,
       simVersionId: versionId,
       mode: 'throw',
@@ -193,6 +286,9 @@ export const useStore = create<State>((set, get) => ({
     if (!v) return;
     const sim = simulate(v.design);
     set({
+      demoDesign: null,
+      demoLabel: null,
+      demoArcs: null,
       draft: { ...v.design },
       baseVersionId: v.id,
       sim,
@@ -211,7 +307,7 @@ export const useStore = create<State>((set, get) => ({
   loadVersion: (versionId) => {
     const v = get().versions.find((x) => x.id === versionId);
     if (!v) return;
-    set({ draft: { ...v.design }, baseVersionId: v.id, mode: 'build', playing: false, panel: 'build', autoCam: true });
+    set({ ...noDemo(get()), draft: { ...v.design }, baseVersionId: v.id, mode: 'build', playing: false, panel: 'build', autoCam: true });
     persist(get);
   },
 
@@ -241,7 +337,7 @@ export const useStore = create<State>((set, get) => ({
       compareIds: s.compareIds.includes(id) ? s.compareIds.filter((c) => c !== id) : [...s.compareIds, id],
     })),
   setCompare: (ids) => set({ compareIds: ids }),
-  setPanel: (panel) => set({ panel }),
+  setPanel: (panel) => set((s) => (panel === 'learn' ? { panel } : { ...noDemo(s), panel, focus: s.panel === 'learn' ? null : s.focus })),
   setPlayTime: (playTime) => {
     const s = get();
     if (!s.revealed && s.sim && s.sim.frames.length) {

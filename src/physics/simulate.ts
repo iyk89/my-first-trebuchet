@@ -205,6 +205,8 @@ export interface SimOptions {
   onStep?: (state: readonly number[], phase: string, t: number) => void;
   /** Stop at the moment the ball lets go (used to preview the release while you adjust the hook). */
   stopAtRelease?: boolean;
+  /** Bigger time steps: about 3x faster, for running many "what if" throws in the lessons. */
+  coarse?: boolean;
 }
 
 export function simulate(d: Design, opts: SimOptions = {}): SimOutput {
@@ -213,8 +215,8 @@ export function simulate(d: Design, opts: SimOptions = {}): SimOutput {
   let s: Vec6 = [start.theta, start.psi, start.phi, 0, 0, 0];
   let phase: Phase = start.onGround ? 'ground' : 'swing';
 
-  const dt = g.tScale / 3000;
-  const sampleEvery = 12;
+  const dt = g.tScale / (opts.coarse ? 1000 : 3000);
+  const sampleEvery = opts.coarse ? 40 : 12;
   const damp = 0.6 / g.tScale;
   const frames: Frame[] = [];
 
@@ -254,6 +256,9 @@ export function simulate(d: Design, opts: SimOptions = {}): SimOutput {
     };
   }
 
+  let prevS: Vec6 = s;
+  let prevPhase: Phase = phase;
+
   const pushFrame = (t: number) => {
     frames.push({ t, theta: s[0], phi: s[2], psi: s[1], bx: ball.x, by: ball.y, released });
   };
@@ -271,6 +276,8 @@ export function simulate(d: Design, opts: SimOptions = {}): SimOutput {
         s[1] += s[4] * dt;
       }
     } else {
+      prevS = s;
+      prevPhase = phase;
       s = rk4(g, s, phase, dt, damp);
       if (phase === 'ground') s = projectToGround(g, s);
       if (cwState(g, s).y - boxHalf < 0) {
@@ -301,7 +308,7 @@ export function simulate(d: Design, opts: SimOptions = {}): SimOutput {
         pushFrame(t);
         break;
       }
-      const b = ballState(g, s);
+      let b = ballState(g, s);
       ball = { x: b.x, y: b.y, vx: b.vx, vy: b.vy };
       if (phase === 'ground') {
         if (accelerations(g, s, 'ground', damp).normal < 0) phase = 'swing';
@@ -321,9 +328,24 @@ export function simulate(d: Design, opts: SimOptions = {}): SimOutput {
           ball = { ...ball, vx: 0, vy: 0 };
           tEnd = t + 3 * g.tScale;
         } else {
+          // Pin down the exact moment the sling lined up with the hook, somewhere inside the last step.
+          let hit = dt;
+          if (prevPhase === 'swing' && !crashed) {
+            let lo = 0;
+            for (let k = 0; k < 30; k++) {
+              const mid = (lo + hit) / 2;
+              const sm = rk4(g, prevS, 'swing', mid, damp);
+              if (sm[1] - sm[0] <= g.releaseAngle) hit = mid;
+              else lo = mid;
+            }
+            s = rk4(g, prevS, 'swing', hit, damp);
+            b = ballState(g, s);
+            ball = { x: b.x, y: b.y, vx: b.vx, vy: b.vy };
+          }
+          const tExact = t - dt + hit;
           released = true;
           phase = 'released';
-          tRelease = t;
+          tRelease = tExact;
           releaseIndex = frames.length;
           // Where did the energy go at the moment of release?
           const cw = cwState(g, s);
@@ -338,7 +360,7 @@ export function simulate(d: Design, opts: SimOptions = {}): SimOutput {
             launchSpeed: speed,
             launchAngle: (Math.atan2(b.vy, b.vx) * 180) / Math.PI,
             releaseHeight: b.y,
-            releaseTime: t,
+            releaseTime: tExact,
             efficiency: norm(parts.ball),
             energy: {
               ball: norm(parts.ball),
@@ -351,8 +373,15 @@ export function simulate(d: Design, opts: SimOptions = {}): SimOutput {
           apex = { x: b.x, y: b.y };
           path.push([b.x, b.y]);
           if (opts.stopAtRelease) {
-            pushFrame(t);
-            return { ok: true, frames, releaseIndex, landIndex: -1, launch: { vx: b.vx, vy: b.vy } };
+            pushFrame(tExact);
+            return { ok: true, frames, releaseIndex, landIndex: -1, launch: { vx: b.vx, vy: b.vy, tipSpeed: Math.abs(g.La * s[3]) } };
+          }
+          // Catch the machine and the ball up to the end of this step.
+          const rest = dt - hit;
+          if (rest > 0) {
+            s = rk4(g, s, 'released', rest, damp);
+            const y = flightStep(g, [ball.x, ball.y, ball.vx, ball.vy], rest);
+            ball = { x: y[0], y: y[1], vx: y[2], vy: y[3] };
           }
         }
       } else if (t > 12 * g.tScale || (t > 0.5 * g.tScale && s[3] > 0)) {
@@ -366,17 +395,8 @@ export function simulate(d: Design, opts: SimOptions = {}): SimOutput {
       }
     } else if (!landed && !failure) {
       // --- the ball in flight (same RK4 method, gravity + air drag)
-      const deriv = (x: number[]) => {
-        const rvx = x[2] - g.wind;
-        const sp = Math.hypot(rvx, x[3]);
-        return [x[2], x[3], -g.dragK * sp * rvx, -g.g - g.dragK * sp * x[3]];
-      };
       const y0 = [ball.x, ball.y, ball.vx, ball.vy];
-      const k1 = deriv(y0);
-      const k2 = deriv(y0.map((v, i) => v + (k1[i] * dt) / 2));
-      const k3 = deriv(y0.map((v, i) => v + (k2[i] * dt) / 2));
-      const k4 = deriv(y0.map((v, i) => v + k3[i] * dt));
-      const y1 = y0.map((v, i) => v + (dt / 6) * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]));
+      const y1 = flightStep(g, y0, dt);
       if (y1[1] <= g.r && y1[3] < 0) {
         const f = (y0[1] - g.r) / (y0[1] - y1[1]);
         ball = {
@@ -433,6 +453,20 @@ export function simulate(d: Design, opts: SimOptions = {}): SimOutput {
     crashIndex,
     results,
   };
+}
+
+/** One RK4 step of the ball in flight: gravity plus air drag (relative to the wind). */
+function flightStep(g: Geometry, y0: number[], h: number): number[] {
+  const deriv = (x: number[]) => {
+    const rvx = x[2] - g.wind;
+    const sp = Math.hypot(rvx, x[3]);
+    return [x[2], x[3], -g.dragK * sp * rvx, -g.g - g.dragK * sp * x[3]];
+  };
+  const k1 = deriv(y0);
+  const k2 = deriv(y0.map((v, i) => v + (k1[i] * h) / 2));
+  const k3 = deriv(y0.map((v, i) => v + (k2[i] * h) / 2));
+  const k4 = deriv(y0.map((v, i) => v + k3[i] * h));
+  return y0.map((v, i) => v + (h / 6) * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]));
 }
 
 function round(v: number) {

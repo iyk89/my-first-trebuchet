@@ -6,7 +6,7 @@ import { useStore } from '../state/store';
 import { Handles } from './Handles';
 import { CameraRig, PlaybackClock } from './Rig';
 import { KidForScale, Trebuchet } from './Trebuchet';
-import { GhostArcs, Ground, LiveArc, useReach } from './World';
+import { DemoArcs, GhostArcs, Ground, LiveArc, useReach } from './World';
 
 function Lights({ size }: { size: number }) {
   const s = Math.max(size, 1.5);
@@ -32,7 +32,10 @@ function Lights({ size }: { size: number }) {
 }
 
 export function Scene() {
-  const draft = useStore((s) => s.draft);
+  const realDraft = useStore((s) => s.draft);
+  const demoDesign = useStore((s) => s.demoDesign);
+  const demoArcs = useStore((s) => s.demoArcs);
+  const draft = demoDesign ?? realDraft; // during a lesson demo, show the what-if build
   const versions = useStore((s) => s.versions);
   const compareIds = useStore((s) => s.compareIds);
   const showAllArcs = useStore((s) => s.showAllArcs);
@@ -46,7 +49,7 @@ export function Scene() {
     if (panel === 'compare') return versions.filter((v) => compareIds.includes(v.id));
     return [];
   }, [versions, compareIds, showAllArcs, panel]);
-  const reach = useReach(draft, shown);
+  const reach = useReach(draft, shown, demoArcs);
   const currentColor = versions.find((v) => v.id === simVersionId)?.color ?? '#ff7a1a';
   const flagSize = Math.max(reach * 0.06, L * 0.4);
 
@@ -65,6 +68,7 @@ export function Scene() {
       <KidForScale design={draft} />
       <Handles design={draft} />
       <GhostArcs versions={shown} size={flagSize} skipId={mode === 'throw' ? simVersionId : null} />
+      {demoArcs && <DemoArcs arcs={demoArcs} size={flagSize} />}
       <LiveArc color={currentColor} size={flagSize} />
       <PlaybackClock design={draft} />
       <CameraRig design={draft} />

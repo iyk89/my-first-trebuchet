@@ -13,6 +13,10 @@ A 3D trebuchet simulator for learning (and building with kids). Change each part
 
 Versions are saved in the browser on the device you use. Use **Download backup** on the Versions tab to keep a copy or move them to another device.
 
+## Learn the parts first
+
+The **📖 Learn** tab has a short lesson for each part (13 in all): what it is, why it matters, how it works, and what it changes. The diagrams and charts are made from your own build by running test throws in the simulator, and the 3D model can play "what if" test throws and show comparison arcs. Test throws are never saved as versions. Every control in the Build tab also has a **📖 Learn** button that opens its lesson.
+
 ## What the simulation includes
 
 - Arm turning on its axle (length, turning point, weight)

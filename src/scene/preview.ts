@@ -13,10 +13,10 @@ export interface ReleasePreview {
   vx: number;
   vy: number;
   angle: number; // launch angle in degrees
+  tipSpeed: number; // how fast the arm tip is moving at that moment
 }
 
-let lastDesign: Design | null = null;
-let last: ReleasePreview | null = null;
+const cache = new WeakMap<Design, ReleasePreview>();
 
 /**
  * Where everything is at the exact moment the ball lets go, for the current build.
@@ -24,7 +24,9 @@ let last: ReleasePreview | null = null;
  * until the build changes.
  */
 export function releasePreview(d: Design): ReleasePreview {
-  if (d === lastDesign && last) return last;
+  const hit = cache.get(d);
+  if (hit) return hit;
+  let last: ReleasePreview;
   const out = simulate(d, { stopAtRelease: true });
   const f = out.frames[out.frames.length - 1];
   if (out.launch && f) {
@@ -38,11 +40,12 @@ export function releasePreview(d: Design): ReleasePreview {
       vx: out.launch.vx,
       vy: out.launch.vy,
       angle: (Math.atan2(out.launch.vy, out.launch.vx) * 180) / Math.PI,
+      tipSpeed: out.launch.tipSpeed,
     };
   } else {
     const a = startAngles(geometry(d));
-    last = { ok: false, failure: out.failure, theta: a.theta, phi: a.phi, psi: a.psi, bx: 0, by: 0, vx: 0, vy: 0, angle: 0 };
+    last = { ok: false, failure: out.failure, theta: a.theta, phi: a.phi, psi: a.psi, bx: 0, by: 0, vx: 0, vy: 0, angle: 0, tipSpeed: 0 };
   }
-  lastDesign = d;
+  cache.set(d, last);
   return last;
 }

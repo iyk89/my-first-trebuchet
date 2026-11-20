@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { fmtLength } from '../data/format';
 import { geometry } from '../physics/geometry';
 import type { Design } from '../physics/types';
-import { useStore, type Version } from '../state/store';
+import { useStore, type DemoArc, type Version } from '../state/store';
 import { Label } from './Label';
 import { frameIndexAt } from './playback';
 import { grassTexture } from './textures';
@@ -99,6 +99,20 @@ export function GhostArcs({ versions, size, skipId }: { versions: Version[]; siz
   );
 }
 
+/** Lesson comparison throws: colored arcs with landing flags. Not saved anywhere. */
+export function DemoArcs({ arcs, size }: { arcs: DemoArc[]; size: number }) {
+  return (
+    <group>
+      {arcs.map((a) => (
+        <group key={a.label}>
+          <Line points={a.path.map(([x, y]) => [x, y, 0] as [number, number, number])} color={a.color} lineWidth={3} />
+          <LandingFlag x={a.distance} color={a.color} size={size} label={a.label} />
+        </group>
+      ))}
+    </group>
+  );
+}
+
 /** The arc of the throw that's playing now, drawn as the ball flies. */
 export function LiveArc({ color, size }: { color: string; size: number }) {
   const sim = useStore((s) => s.sim);
@@ -146,12 +160,13 @@ export function LiveArc({ color, size }: { color: string; size: number }) {
 }
 
 /** How far the ground markers should go for what's on screen. */
-export function useReach(design: Design, versions: Version[]) {
+export function useReach(design: Design, versions: Version[], demo: DemoArc[] | null = null) {
   const sim = useStore((s) => s.sim);
   const mode = useStore((s) => s.mode);
   const g = geometry(design);
   let far = Math.max(design.armLength * 6, g.H * 6, 1);
   for (const v of versions) if (v.results) far = Math.max(far, v.results.distance * 1.1);
+  for (const a of demo ?? []) far = Math.max(far, a.distance * 1.1);
   if (mode === 'throw' && sim?.results) far = Math.max(far, sim.results.distance * 1.1);
   const step = niceStep(far);
   return Math.ceil(far / step) * step;
