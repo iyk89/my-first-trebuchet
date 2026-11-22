@@ -17,6 +17,17 @@ Versions are saved in the browser on the device you use. Use **Download backup**
 
 The **📖 Learn** tab has a short lesson for each part (13 in all): what it is, why it matters, how it works, and what it changes. The diagrams and charts are made from your own build by running test throws in the simulator, and the 3D model can play "what if" test throws and show comparison arcs. Test throws are never saved as versions. Every control in the Build tab also has a **📖 Learn** button that opens its lesson.
 
+## Build plans
+
+Press **📐 Build plans** (on the Build tab, on any saved version, or on the results) to see printable plans for that design, and **Download PDF** to save them. Four pages:
+
+1. **Side view (profile)**, to scale: arm length, where the axle goes from each end, axle height, hanger, weight box, hook angle, pull-back angle, and where the ball starts.
+2. **Top view (plan)**, to scale: base size, the gap between the side frames, the trough.
+3. **Key numbers and templates**: every setting in one table, a release-hook angle template, the sling layout, and the throw the simulator expects.
+4. **Cut list and safety**: every part with its length and thickness, plus safety rules.
+
+Print at 100% (actual size). Each drawing has a scale bar so you can check the print before measuring off it.
+
 ## What the simulation includes
 
 - Arm turning on its axle (length, turning point, weight)

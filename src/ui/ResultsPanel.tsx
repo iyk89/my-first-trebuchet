@@ -12,6 +12,7 @@ import {
 } from '../data/format';
 import { useStore } from '../state/store';
 import { EnergyBar } from './EnergyBar';
+import { openPlansForVersion } from '../plans/open';
 
 export function ResultsPanel() {
   const sim = useStore((s) => s.sim);
@@ -127,6 +128,7 @@ export function ResultsPanel() {
         <button className="primary" onClick={() => setPanel('build')}>
           🔧 Change something
         </button>
+        <button onClick={() => openPlansForVersion(v)}>📐 Build plans</button>
         <button onClick={() => setPanel('versions')}>📚 All versions</button>
       </div>
     </div>

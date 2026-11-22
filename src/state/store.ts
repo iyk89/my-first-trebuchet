@@ -102,6 +102,9 @@ interface State {
   panel: 'build' | 'results' | 'versions' | 'compare' | 'learn';
   /** Lessons: which one is open (null = the list), which page, and which ones you've finished. */
   learnId: string | null;
+  /** Build plans being shown (null = closed). */
+  plans: { design: Design; name: string; results?: Results | null } | null;
+  openPlans: (p: { design: Design; name: string; results?: Results | null } | null) => void;
   learnPage: number;
   learned: string[];
   /** A "what if" build shown in 3D during a lesson. It is never saved as a version. */
@@ -178,6 +181,8 @@ export const useStore = create<State>((set, get) => ({
   },
   revealed: false,
   learnId: null,
+  plans: null,
+  openPlans: (plans) => set({ plans, playing: false }),
   learnPage: 0,
   learned: loadLearned(),
   demoDesign: null,

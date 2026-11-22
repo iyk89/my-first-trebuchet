@@ -7,6 +7,7 @@ import { ResultsPanel } from './ui/ResultsPanel';
 import { StageOverlay } from './ui/StageOverlay';
 import { VersionsPanel } from './ui/VersionsPanel';
 import { LearnPanel } from './learn/LearnPanel';
+import { PlansViewer } from './plans/PlansViewer';
 
 function TopBar() {
   const panel = useStore((s) => s.panel);
@@ -86,6 +87,7 @@ export default function App() {
           {panel !== 'learn' && <ThrowBar />}
         </aside>
       </main>
+      <PlansViewer />
     </div>
   );
 }

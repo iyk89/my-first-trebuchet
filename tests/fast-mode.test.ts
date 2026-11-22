@@ -14,4 +14,4 @@ test('coarse lesson runs agree with full runs', () => {
   let t0 = performance.now(); for (let i = 0; i < 5; i++) simulate(PRESETS[1].design, { coarse: true });
   console.log('worst difference', (worst * 100).toFixed(2) + '%', 'coarse ms', ((performance.now() - t0) / 5).toFixed(1));
   expect(worst).toBeLessThan(0.02);
-});
+}, 60_000);

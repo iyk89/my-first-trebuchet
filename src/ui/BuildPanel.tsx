@@ -5,6 +5,7 @@ import { STEPS, VARS, describeChanges, type StepId } from '../data/variables';
 import { buildIssues, PLANETS } from '../physics/geometry';
 import type { Planet } from '../physics/types';
 import { currentVersion, useStore } from '../state/store';
+import { openPlansForDraft } from '../plans/open';
 import { LearnButton } from './LearnButton';
 import { Slider } from './Slider';
 
@@ -274,6 +275,9 @@ export function BuildPanel() {
       ) : (
         <p className="ready">All set! Make a guess and press THROW.</p>
       )}
+      <button className="plans-btn" onClick={openPlansForDraft}>
+        📐 Build plans for this design
+      </button>
     </div>
   );
 }

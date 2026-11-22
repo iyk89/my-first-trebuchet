@@ -1535,3 +1535,106 @@ tr.same th {
     font-size: 11px;
   }
 }
+
+/* ---------- Build plans ---------- */
+.plans-btn {
+  width: 100%;
+  margin-top: 10px;
+  background: #eef8ff;
+  border-color: #c6e4fb;
+}
+.plans-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: #e9e4da;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.plans-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-block: 8px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: var(--brand);
+  color: white;
+}
+.plans-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.plans-title b {
+  font-family: var(--font-head);
+  font-size: 20px;
+}
+.plans-title span {
+  font-size: 13px;
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plans-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.plans-actions .zoom {
+  display: flex;
+  gap: 4px;
+}
+.plans-actions .zoom button {
+  min-height: 34px;
+  padding: 2px 10px;
+  font-size: 13px;
+}
+.plans-actions .zoom button.on {
+  border-color: var(--accent);
+}
+.plans-msg {
+  background: #fff6d6;
+  padding: 6px 16px;
+  font-weight: 700;
+  font-size: 14px;
+}
+.plans-scroll {
+  flex: 1;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px;
+}
+.plans-pages {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.plans-pages[style*='150%'],
+.plans-pages[style*='200%'] {
+  max-width: none;
+}
+.plan-sheet {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: white;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+}
+.plans-tip {
+  text-align: center;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+.plans-actions button:not(.primary) {
+  color: var(--ink);
+  background: var(--card);
+}
